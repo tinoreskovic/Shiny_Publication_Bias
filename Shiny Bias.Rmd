@@ -1,0 +1,143 @@
+---
+title: "bias"
+output: html_document
+---
+
+
+```{r}
+install.packages("shiny")
+library(shiny)
+```
+
+The function to make the plot from the paper: http://www.stat.columbia.edu/~gelman/research/published/incrementalism_3.pdf
+```{r}
+bias <- function(m, ste) {
+
+  func <- function(x, ...) {x * dnorm(x, ...)}
+
+  ((abs(integrate(func, -Inf, -2*ste, mean=m, sd = ste)$value) + integrate(func, 2*ste, Inf, mean=m, sd = ste)$value)/
+      ((pnorm(-2*ste, mean=m, sd=ste) - pnorm(-Inf, mean=m, sd=ste)) + (pnorm(Inf, mean=m, sd=ste) - pnorm(2*ste, mean=m, sd=ste)))) - m
+
+}
+```
+
+making the plot for the values from the paper (i.e. form the early childhood inervation paper)
+```{r}
+
+min = 0
+max = 0.6
+ste = 0.12
+prior <- seq(min, max, length.out = 1000)
+
+b <- sapply(prior, bias, ste)
+
+plot(b~prior, type = "l", las = 1, ylab = "bias", xlab = "true effect size", lwd = 2)
+
+```
+
+
+This chunk makes a shinny app from the above bias plot, with the x and y values of the point of the plot that one clicks on, but does not have the interactive feature of setting the min, max (the range of the 'true effect') or the ste (the standard error)
+```{r}  
+bias <- function(m, ste) {
+
+  func <- function(x, ...) {x * dnorm(x, ...)}
+
+  ((abs(integrate(func, -Inf, -2*ste, mean=m, sd = ste)$value) + integrate(func, 2*ste, Inf, mean=m, sd = ste)$value)/
+      ((pnorm(-2*ste, mean=m, sd=ste) - pnorm(-Inf, mean=m, sd=ste)) + (pnorm(Inf, mean=m, sd=ste) - pnorm(2*ste, mean=m, sd=ste)))) - m
+
+}
+
+min = 0
+max = 0.6
+ste = 0.12
+prior <- seq(min, max, length.out = 1000)
+
+b <- sapply(prior, bias, ste)
+
+
+
+ui <- fluidPage(
+  
+  titlePanel("Bias in expected magnitude of effect size estimate, conditional on statistical significance,
+as a function of actual effect size"),
+  plotOutput("plot1", click = "plot_click"),
+  verbatimTextOutput("info")
+)
+
+  fluidRow(
+    
+    column(3, 
+      numericInput("ste", label = h3("standard error"), value = 0.12)),
+    
+    column(3, 
+      numericInput("min", label = h3("min. true effect size"), value = 0)),     
+    column(3, 
+      numericInput("max", label = h3("max. true effect size "), value = 0.6))
+  
+  )
+  
+
+
+server <- function(input, output) {
+  output$plot1 <- renderPlot({
+    plot(b~prior, type = "l", las = 1, ylab = "bias", xlab = "true effect size", lwd = 2)})
+
+  output$info <- renderText({
+    paste0("x=", input$plot_click$x, "\ny=", input$plot_click$y)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+
+
+Here we also have the interactive features of setting the min, max (the range of the 'true effect') or the ste (the standard error). One click gives the first pair of coordinates, two clicks give the second pair
+```{r}
+bias <- function(m, ste) {
+
+      func <- function(x, ...) {x * dnorm(x, ...)}
+
+      ((abs(integrate(func, -Inf, -2*ste, mean=m, sd = ste)$value) + integrate(func, 2*ste, Inf, mean=m, sd = ste)$value)/
+          ((pnorm(-2*ste, mean=m, sd=ste) - pnorm(-Inf, mean=m, sd=ste)) + (pnorm(Inf, mean=m, sd=ste) - pnorm(2*ste, mean=m, sd=ste)))) - m
+}
+
+   
+ui <- fluidPage(
+  
+  titlePanel("Bias in expected magnitude of effect size estimate, conditional on statistical significance,
+as a function of actual effect size"),
+  plotOutput("plot1", click = "plot_click", hover = "plot_hover", dblclick = "plot_dblclick"),
+  verbatimTextOutput("info"),
+  
+  fluidRow(
+    
+    column(3, 
+      numericInput("ste", label = h3("standard error"), value = 0.12)),
+    
+    column(3, 
+      numericInput("min", label = h3("min. true effect size"), value = 0)),     
+    column(3, 
+      numericInput("max", label = h3("max. true effect size "), value = 0.6))
+  
+  )
+)
+
+
+
+
+server <- function(input, output) {
+
+  output$plot1 <- renderPlot({
+    b <- sapply(seq(input$min, input$max, length.out = 1000), bias, input$ste)
+    plot(b~(seq(input$min, input$max, length.out = 1000)), type = "l", las = 1, ylab = "bias", xlab = "true effect size", lwd = 2)})
+
+  output$info <- renderText({
+    paste0("x_1=  ", input$plot_click$x, "\ny_1=  ", input$plot_click$y, "\n\nx_2=  ", input$plot_dblclick$x, "\ny_2=  ", input$plot_dblclick$y ) 
+    
+  })
+}
+shinyApp(ui, server)
+```
+
